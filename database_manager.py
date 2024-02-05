@@ -19,6 +19,28 @@ class DatabaseManager:
             print(f"Error connecting to database: {e}")
             raise
     
+    def _execute_query(self, query, data=None):
+        """
+        Executes a SQL query with optional data parameters.
+        
+        Args:
+            query (str): The SQL query to execute.
+            data (tuple, optional): The data to be used in the query.
+        
+        Returns:
+            list of tuples: The result of the query execution.
+        """
+        try:
+            if data:
+                self.cur.execute(query, data)
+            else:
+                self.cur.execute(query)
+            self.conn.commit()
+            return self.cur.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error executing query: {e}")
+            raise
+    
     def create_table(self, table_name, columns):
         """
         Create a new table in the database with the given name and columns.
@@ -30,8 +52,7 @@ class DatabaseManager:
         try:
             columns_str = ', '.join(columns)
             create_table_sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_str})"
-            self.cur.execute(create_table_sql)
-            self.conn.commit()
+            self._execute_query(create_table_sql)
         except sqlite3.Error as e:
             print(f"Error creating table: {e}")
             raise
@@ -47,8 +68,7 @@ class DatabaseManager:
         try:
             placeholders = ', '.join(['?' for _ in range(len(data))])
             insert_sql = f"INSERT INTO {table_name} VALUES ({placeholders})"
-            self.cur.execute(insert_sql, data)
-            self.conn.commit()
+            self._execute_query(insert_sql, data)
         except sqlite3.Error as e:
             print(f"Error inserting data: {e}")
             raise
@@ -69,8 +89,7 @@ class DatabaseManager:
                 fetch_sql = f"SELECT * FROM {table_name} WHERE {condition}"
             else:
                 fetch_sql = f"SELECT * FROM {table_name}"
-            self.cur.execute(fetch_sql)
-            return self.cur.fetchall()
+            return self._execute_query(fetch_sql)
         except sqlite3.Error as e:
             print(f"Error fetching data: {e}")
             raise
@@ -107,8 +126,10 @@ if __name__ == "__main__":
         students_over_23 = db_manager.fetch_data("students", "age > 23")
         print("Students over 23:", students_over_23)
         
+    except sqlite3.Error as e:
+        print(f"An SQLite error occurred: {e}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An unexpected error occurred: {e}")
     finally:
         try:
             # Close connection
