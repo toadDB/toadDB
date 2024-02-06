@@ -2,6 +2,7 @@
 # (c) toadDB 2024
 
 import sqlite3
+import logging
 
 class DatabaseManager:
     def __init__(self, db_name):
@@ -12,24 +13,35 @@ class DatabaseManager:
         Args:
             db_name (str): The name of the SQLite database file.
         """
+        self._validate_db_name(db_name)
         try:
             self.conn = sqlite3.connect(db_name)
             self.cur = self.conn.cursor()
         except sqlite3.Error as e:
-            print(f"Error connecting to database: {e}")
+            logging.error(f"Error connecting to database: {e}")
             raise
+
+    def _validate_db_name(self, db_name):
+        if not isinstance(db_name, str):
+            raise ValueError("Database name must be a string.")
+        if not db_name.endswith('.db'):
+            raise ValueError("Database name must end with '.db'.")
+
+    def _validate_table_name(self, table_name):
+        if not isinstance(table_name, str):
+            raise ValueError("Table name must be a string.")
+        if not table_name.isidentifier():
+            raise ValueError("Table name must be a valid identifier.")
+
+    def _validate_column_names(self, columns):
+        for column in columns:
+            if not isinstance(column, str):
+                raise ValueError("Column names must be strings.")
+            if not column.isidentifier():
+                raise ValueError("Column name must be a valid identifier.")
     
+    # Method to execute SQL queries
     def _execute_query(self, query, data=None):
-        """
-        Executes a SQL query with optional data parameters.
-        
-        Args:
-            query (str): The SQL query to execute.
-            data (tuple, optional): The data to be used in the query.
-        
-        Returns:
-            list of tuples: The result of the query execution.
-        """
         try:
             if data:
                 self.cur.execute(query, data)
@@ -38,7 +50,7 @@ class DatabaseManager:
             self.conn.commit()
             return self.cur.fetchall()
         except sqlite3.Error as e:
-            print(f"Error executing query: {e}")
+            logging.error(f"Error executing query: {e}")
             raise
     
     def create_table(self, table_name, columns):
@@ -49,12 +61,14 @@ class DatabaseManager:
             table_name (str): The name of the table to be created.
             columns (list of str): The list of column definitions for the table.
         """
+        self._validate_table_name(table_name)
+        self._validate_column_names(columns)
         try:
             columns_str = ', '.join(columns)
             create_table_sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_str})"
             self._execute_query(create_table_sql)
         except sqlite3.Error as e:
-            print(f"Error creating table: {e}")
+            logging.error(f"Error creating table: {e}")
             raise
     
     def insert_data(self, table_name, data):
@@ -65,12 +79,13 @@ class DatabaseManager:
             table_name (str): The name of the table to insert data into.
             data (tuple): The data to be inserted into the table.
         """
+        self._validate_table_name(table_name)
         try:
             placeholders = ', '.join(['?' for _ in range(len(data))])
             insert_sql = f"INSERT INTO {table_name} VALUES ({placeholders})"
             self._execute_query(insert_sql, data)
         except sqlite3.Error as e:
-            print(f"Error inserting data: {e}")
+            logging.error(f"Error inserting data: {e}")
             raise
     
     def fetch_data(self, table_name, condition=None):
@@ -84,6 +99,7 @@ class DatabaseManager:
         Returns:
             list of tuples: The fetched data from the table.
         """
+        self._validate_table_name(table_name)
         try:
             if condition:
                 fetch_sql = f"SELECT * FROM {table_name} WHERE {condition}"
@@ -91,7 +107,7 @@ class DatabaseManager:
                 fetch_sql = f"SELECT * FROM {table_name}"
             return self._execute_query(fetch_sql)
         except sqlite3.Error as e:
-            print(f"Error fetching data: {e}")
+            logging.error(f"Error fetching data: {e}")
             raise
     
     def close_connection(self):
@@ -101,8 +117,11 @@ class DatabaseManager:
         try:
             self.conn.close()
         except sqlite3.Error as e:
-            print(f"Error closing connection: {e}")
+            logging.error(f"Error closing connection: {e}")
             raise
+
+# Configure logging
+logging.basicConfig(level=logging.ERROR)
 
 # Example usage:
 if __name__ == "__main__":
@@ -127,9 +146,9 @@ if __name__ == "__main__":
         print("Students over 23:", students_over_23)
         
     except sqlite3.Error as e:
-        print(f"An SQLite error occurred: {e}")
+        logging.error(f"An SQLite error occurred: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logging.error(f"An unexpected error occurred: {e}")
     finally:
         try:
             # Close connection
